@@ -1,0 +1,10 @@
+DEVICE=bond0.{{ storage_vlan }}
+VLAN=yes
+ONBOOT=yes
+MTU=9000
+DEFROUTE=no
+NM_CONTROLLED=no
+IPV6INIT=no
+IPADDR={{ storageip }}
+NETMASK=255.255.255.0
+BOOTPROTO=none

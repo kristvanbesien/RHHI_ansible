@@ -1,0 +1,41 @@
+[test]
+trhvnode1  ipindex=11
+trhvnode2   baseuri=10.172.80.12  ipindex=12
+trhvnode3   baseuri=10.172.80.13  ipindex=13
+
+[test:vars]
+ilo_cidr="10.172.80.0/24"
+admin_vlan="81"
+admin_cidr="10.172.81.0/24"
+storage_vlan="82"
+storage_cidr="10.172.82.0/24"
+
+
+
+[prod]
+prhvnode1  ipindex=11
+prhvnode2  ipindex=12
+prhvnode3  ipindex=13
+
+[prod:vars]
+admin_vlan="71"
+admin_cidr="10.172.71.0/24"
+storage_vlan="72"
+storage_cidr="10.172.72.0/24"
+
+
+
+[myhosts:children]
+test
+prod
+dr
+
+[myhosts:vars]
+host="{{inventory_hostname}}"
+domain="example.com"
+admin_dns="172.24.20.24,172.24.20.25"
+#First drive is /dev/sdb, the others we ignore...
+datadrives="/dev/sdc,/dev/sdd,/dev/sde,/dev/sdf"
+installdisk="/dev/disk/by-path/pci-0000:5c:00.0-scsi-0:1:0:0"
+ISOfile="../Work/Images/RHVH-4.2-20180828.0-RHVH-x86_64-dvd1.iso"
+Workdir="../Work/REDHAT/MSM/iso"

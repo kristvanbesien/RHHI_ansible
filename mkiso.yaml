@@ -1,0 +1,93 @@
+- name: prepare for creating a custome ISO to install RHEV.
+  hosts: localhost
+  gather_facts: no
+  become: true
+
+  tasks:
+
+  - name: make sure the mount dir for the iso exists
+    file:
+      dest: "{{ Workdir }}/ISORO"
+      state: directory
+
+  - name: mount the ISO
+    mount:
+      src: "{{ISOfile}}"
+      path: "{{ Workdir }}/ISORO"
+      opts: loop
+      fstype: iso9660
+      state: mounted
+      boot: no
+
+  - name: copy everything to a workdir
+    synchronize:
+      src: "{{ Workdir }}/ISORO/"
+      dest: "{{ Workdir }}/ISORW"
+
+  - name: make sure the isolinux dir is writable
+    file:
+      dest: "{{ Workdir }}/ISORW/isolinux"
+      mode: "0777"
+  - name: make sure the EFI/BOOT dir is writable
+    file:
+      dest: "{{ Workdir }}/ISORW/EFI/BOOT"
+      mode: "0777"
+  - name: make sure the work  is writable
+    file:
+      dest: "{{ Workdir }}/ISORW"
+      mode: "0777"
+  - name: make sure the isolinux.bin is writable
+    file:
+      dest: "{{ Workdir }}/ISORW/isolinux/isolinux.bin"
+      mode: "0777"
+
+
+- name: create the kickstart files.
+  gather_facts: no
+  hosts: myhosts
+  vars:
+    Workdir: /home/krist/Work/REDHAT/MSM/iso
+    ks_fqdn: "{{ inventory_hostname }}.{{ domain }}"
+    ks_storageip: "{{ storage_cidr | ipaddr(ipindex) | ipaddr('address') }}"
+    ks_adminip: "{{ admin_cidr | ipaddr(ipindex) | ipaddr('address') }}"
+    ks_gateway: "{{ admin_cidr | ipaddr('254') | ipaddr('address') }}"
+
+
+  tasks:
+
+  - name: create a kickstart file
+    template:
+      src: rhvhks.j2
+      dest: "{{ Workdir }}/ISORW/{{ inventory_hostname }}.ks"
+    delegate_to: localhost
+    notify: Create the ISO file
+
+  - name: add items to BIOS startup menu
+    template:
+      src: isolinux.j2
+      dest: "{{ Workdir }}/ISORW/isolinux/isolinux.cfg"
+    delegate_to: localhost
+    run_once: true
+    notify: Create the ISO file
+
+  - name: add items to EFI startup menu
+    template:
+      src: grub.j2
+      dest: "{{ Workdir }}/ISORW/EFI/BOOT/grub.cfg"
+    delegate_to: localhost
+    run_once: true
+    notify: Create the ISO file
+
+  handlers:
+
+  - name: Create the ISO file
+    delegate_to: localhost
+    run_once: true
+    shell: |
+      mkisofs \
+      -o {{ Workdir }}/RHVH_custom.iso \
+      -V "RHVH-4.2-custom"\
+      -r -v -T -x ./lost+found -x TRANS.TBL -graft-points \
+      -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4  \
+      -boot-info-table -eltorito-alt-boot -e images/efiboot.img -no-emul-boot \
+      -r {{ Workdir }}/ISORW/

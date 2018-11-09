@@ -1,0 +1,22 @@
+lang en_US
+keyboard us
+timezone Asia/Muscat --isUtc
+rootpw $1$ytQZVTQb$4wGLQ5h8qz0mTQGdVKQEN/ --iscrypted
+%pre
+cd /tmp
+rpm2cpio /run/install/repo/Packages/redhat-virtualization-host-image-update*|cpio -ivd
+squashfs=$(find|grep squashfs|grep -v meta)
+ln -s $squashfs /tmp/squashfs
+%end
+liveimg --url=file:///tmp/squashfs
+clearpart --all
+ignoredisk --only-use={{ installdisk }}
+autopart --type=thinp
+text
+network --hostname={{ ks_fqdn }}
+network --device=bond0 --bondslaves=eno5,eno6,ens1f0,ens1f1 --bondopts=mode=802.3ad --vlanid={{ admin_vlan }} --bootproto static --ip={{ ks_adminip }} --netmask=255.255.255.0 --gateway={{ ks_gateway }} --nameserver={{ admin_dns }} --noipv6 --onboot=yes --mtu=9000
+eula --agreed
+%post --erroronfail
+imgbase layout --init
+%end
+reboot

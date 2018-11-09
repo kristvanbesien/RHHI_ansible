@@ -1,0 +1,122 @@
+= Ansible playbooks to support a RHHI installation
+
+== Introduction.
+
+This is a set of ansible playbooks that helps speed up the installation of a RHHI cluster.
+
+These playbooks help with:
+
+- Creating a custom ISO that contains kickstart files to automate RHHI installs.
+- Post install modifications to the hosts, prior to running the deploy wizzard.
+
+== Preparation.
+
+Check out this repository somewhere.
+
+Modify the inventory file per your requirements.
+
+In each group of hosts (add as many as you need) you need to set at least te hostname, and the "ipindex"
+
+=== Important variables in the inventory file.
+
+. `admin_vlan` and `storage_vlan`
++
+RHHI requires a storage and an admin network.
+These playbooks were written for an environment that uses vlans, so add the correct VLAN tags.
+
+. `admin_cidr` and `storage_cidr`
++
+Add the network ranges used.
+
+. `ipindex`
++
+IP adresses for the hosts are automatically generated, using the ipindex parameter.
+For example, an index of 11 means that the host will get the 11th IP address in the networks defined by admin_cidr and storage_cidr.
+
+. `domain`
++
+Domain name to add to hostname to cerate a fqdn.
+
+. `admin_dns`
++
+DNS hosts in the admin network.
+
+. `datadrives`
++
+List of drives that will be ignored during installation.
+
+. `installdisk`
++
+The disk to install the OS on.
+Try to use an unambiguous reference, like `/dev/disk/by-path/...`
+
+. `ISOfile`
++
+The ISO file used as basis.
+
+. `Workdir`
++
+Workdir to use.
+
+=== Template files
+. `grub.j2` and `isolinux.j2`
++
+Creates an entry for each host in the boot menu. Changes will probably not be needed here.
+
+. `rhvhks.j2`
++
+Creates the custom kickstart file. If you need additional functionality in your kickstart add it here.
+
+. `storage_bridge.j2` and `storage_vlan.j2`
++
+Create the storage networks.
+You may need to change this.
+These playbooks were created for an environment where all ethernet interfaces were bonded together in on bond.
+
+=== Other files
+
+. `ntp.conf`
++
+NTP configuration that is copied to each host. Change if needed.
+
+. `HP_repo` and `RHVH_repo`
++
+Two repositories, on for HP Raid tools, and the other with the RHV-M appliance package.
+RPMs are placed here, and run createrepo.
++
+I you are not using local repos just remove the relevant lines from prepare.yaml
+
+== Creating the ISO
+
+The iso is created using the `mkiso.yaml` playbook.
+
+----
+ansible-playbook mkiso.yaml
+----
+
+At the end the a `RHVH_custom.iso` is created.
+
+== Installing the RHV-H hosts using the custom ISO.
+
+Boot the server using the custom ISO.
+From the boot menu select the host (by hostname) you wish to install.
+
+The host will go through an unattended install.
+OS will be installed on the disk you defined, hostname will be set and the admin network will be configured.
+
+== Prepare the hosts for the RHHI deploy.
+
+----
+ansible-playbook prepare.yaml
+----
+
+This will do the following:
+
+. Add copies of prepared local repositories to the RHV-H hosts.
++
+This is a workaround for the fact that here there was not satellite, and the hosts had no internet access.
+The repositories were prepared in advance.
+
+. Create a ssh key for the root user, and copy it everywher.
+
+. set up the storage network.

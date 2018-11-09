@@ -1,0 +1,127 @@
+# Playbook to prepare the nodes for a RHHI deploy
+#
+# This playbook contains workarounds for several issues.
+#
+# 1) We have no working satellite. So we create two local repositories,
+# and use that for package installation.
+# 2) There is an issue when vdsm takes over the network that makes us lose the storage network.
+#
+# We also create ssh keys and distribute them, so password-less login works.
+
+
+- name:                 Prepare the nodes
+  hosts:                "{{ hosts | default('test_rhvh') }}"
+  remote_user:          root
+  vars:
+    networkscripts:     "/etc/sysconfig/network-scripts"
+
+
+  tasks:
+  - name:               Copy HP repo files over.
+    synchronize:
+      src:              ../files/HP_repo
+      dest:             /var/local
+
+  - name:               create a yum repo for HP.
+    yum_repository:
+      name:             HP_tools
+      description:      Repository with HP tools for RHEL
+      baseurl:          file:///var/local/HP_repo
+      gpgcheck:         no
+
+  - name:               install HP packages.
+    yum:
+      name:             "{{ packages }}"
+    vars:
+      packages:
+      - sut
+      - amsd
+      - hponcfg
+      - ssacli
+
+# Set up password-less login between the hosts
+#
+# Here we create an ssh key for root
+# We add it to the authorized_key file on all nodes
+# and we pre-populate the known_hosts file.
+
+  - user:
+      name:             "root"
+      generate_ssh_key: yes
+      state:            present
+    register:           my_user
+
+  - authorized_key:
+      user:             "root"
+      key:              "{{ my_user.ssh_public_key }}"
+    delegate_to:        "{{ item }}"
+    with_items:         "{{ ansible_play_hosts }}"
+
+# Add the RHVH repo files to the hosts.
+
+  - name:               Copy RHVH repo files over.
+    synchronize:
+      src:              ../files/RHVH_repo
+      dest:             /var/local
+
+  - name:               create a yum repo for RHVH.
+    yum_repository:
+      name:             RHVH
+      description:      Repository with extra RHVH packages
+      baseurl:          file:///var/local/RHVH_repo
+      gpgcheck:         no
+
+  - name:               install the RHVM appliance
+    yum:
+      name:             rhvm-appliance
+
+# Fix the network.
+#
+# Here we create a separate vlan interface, and a bridge for the storage network.
+# This is not managed by NetworkManager
+#
+# This is a workaround for a bug in vdsm, where when two vlans exist on the same bond the
+# second is lost when vdsm takes over the network.
+
+  - name:               create a config file for the storage vlan
+    template:
+      dest:             "{{ networkscripts }}/ifcfg-bond0.{{storage_vlan}}"
+      src:              storage_vlan.j2
+    notify:             start new network
+    vars:
+      storageip:        "{{ storage_cidr | ipaddr(ipindex) | ipaddr('address') }}"
+
+
+# Fix issues with mpath devices...
+# This is a fix for
+# https://bugzilla.redhat.com/show_bug.cgi?id=1567908
+
+  - name: Fix multipath issues.
+    blockinfile:
+      path: /etc/multipath.conf
+      block: |
+        blacklist {
+          devnode "*"
+        }
+# Configure NTP
+  - name: copy ntp.conf
+    copy:
+      src: ntp.conf
+      dest: /etc/ntp.conf
+    notify: restart ntp
+
+  - name: start and enable ntp
+    service:
+      name: ntpd
+      state: started
+      enabled: true
+
+  handlers:
+  - name:               start new network
+    shell:              |
+      ifup bond0.{{storage_vlan}}
+
+  - name: restart ntp
+    service:
+      name: ntpd
+      state: restarted       

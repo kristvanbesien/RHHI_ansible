@@ -1,0 +1,47 @@
+set default="1"
+
+function load_video {
+  insmod efi_gop
+  insmod efi_uga
+  insmod video_bochs
+  insmod video_cirrus
+  insmod all_video
+}
+
+load_video
+set gfxpayload=keep
+insmod gzio
+insmod part_gpt
+insmod ext2
+
+set timeout=60
+### END /etc/grub.d/00_header ###
+
+search --no-floppy --set=root -l 'RHVH-4.2 RHVH.x86_64'
+
+menuentry 'Install RHVH 4.2' --class fedora --class gnu-linux --class gnu --class os {
+	linuxefi /images/pxeboot/vmlinuz inst.stage2=hd:LABEL=RHVH-4.2-custom ks=hd:LABEL=RHVH-4.2-custom:/ks.cfg quiet
+	initrdefi /images/pxeboot/initrd.img
+}
+menuentry 'Test this media & install RHVH 4.2' --class fedora --class gnu-linux --class gnu --class os {
+	linuxefi /images/pxeboot/vmlinuz inst.stage2=hd:LABEL=RHVH-4.2-custom ks=hd:LABEL=RHVH-4.2-custom:/ks.cfg rd.live.check quiet
+	initrdefi /images/pxeboot/initrd.img
+}
+
+{% for host in vars['ansible_play_hosts'] %}
+menuentry 'Install host {{ host }}'  --class fedora --class gnu-linux --class gnu --class os {
+	linuxefi /images/pxeboot/vmlinuz inst.stage2=hd:LABEL=RHVH-4.2-custom ks=hd:LABEL=RHVH-4.2-custom:/{{ host }}.ks quiet
+	initrdefi /images/pxeboot/initrd.img
+}
+{% endfor %}
+
+submenu 'Troubleshooting -->' {
+	menuentry 'Install RHVH 4.2 in basic graphics mode' --class fedora --class gnu-linux --class gnu --class os {
+		linuxefi /images/pxeboot/vmlinuz inst.stage2=hd:LABEL=RHVH-4.2-custom ks=hd:LABEL=RHVH-4.2-custom:/ks.cfg xdriver=vesa nomodeset quiet
+		initrdefi /images/pxeboot/initrd.img
+	}
+	menuentry 'Rescue a RHVH system' --class fedora --class gnu-linux --class gnu --class os {
+		linuxefi /images/pxeboot/vmlinuz inst.stage2=hd:LABEL=RHVH-4.2-custom ks=hd:LABEL=RHVH-4.2-custom:/ks.cfg rescue quiet
+		initrdefi /images/pxeboot/initrd.img
+	}
+}
