@@ -10,7 +10,7 @@
 
 
 - name:                 Prepare the nodes
-  hosts:                "{{ hosts | default('test_rhvh') }}"
+  hosts:                "{{ hosts | default('test') }}"
   remote_user:          root
   vars:
     networkscripts:     "/etc/sysconfig/network-scripts"
