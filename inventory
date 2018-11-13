@@ -1,7 +1,7 @@
 [test]
 trhvnode1  ipindex=11
-trhvnode2   baseuri=10.172.80.12  ipindex=12
-trhvnode3   baseuri=10.172.80.13  ipindex=13
+trhvnode2  ipindex=12
+trhvnode3  ipindex=13
 
 [test:vars]
 ilo_cidr="10.172.80.0/24"
